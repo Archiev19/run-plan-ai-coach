@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import GoalSelector, { GoalType } from '@/components/forms/GoalSelector';
@@ -12,6 +12,7 @@ import { generateRunningPlan } from '@/services/planGenerator';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from 'lucide-react';
+import { initializeAICoach } from '@/utils/aiCoachService';
 
 const initialWeightLossData = {
   currentWeight: 0,
@@ -46,6 +47,9 @@ const initialRaceTrainingData = {
   strengthTraining: true,
   trainingDays: ['tuesday', 'thursday', 'saturday'],
   injuryHistory: '',
+  currentPace: '',
+  recentRaceTime: '',
+  recentRaceDistance: '',
 };
 
 const Index = () => {
@@ -59,6 +63,12 @@ const Index = () => {
   const [raceTrainingData, setRaceTrainingData] = useState(initialRaceTrainingData);
   
   const { toast } = useToast();
+
+  useEffect(() => {
+    initializeAICoach().catch(error => 
+      console.error('Error preloading AI model:', error)
+    );
+  }, []);
 
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
@@ -165,7 +175,8 @@ const Index = () => {
         !raceTrainingData.longestRun ||
         !raceTrainingData.approachPreference ||
         !raceTrainingData.raceTerrain ||
-        raceTrainingData.trainingDays.length === 0
+        raceTrainingData.trainingDays.length === 0 ||
+        !raceTrainingData.currentPace
       ) {
         toast({
           title: "Missing information",
