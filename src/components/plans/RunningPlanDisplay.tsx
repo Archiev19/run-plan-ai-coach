@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -61,12 +60,12 @@ const RunningPlanDisplay = ({ plan, onReset, onAskCoach }: RunningPlanDisplayPro
 
   const handlePrint = useReactToPrint({
     documentTitle: `${plan.title}_Training_Plan`,
-    onPrintError: (error) => toast({
+    onPrintError: () => toast({
       title: "Print Error",
       description: "An error occurred while generating PDF",
       variant: "destructive",
     }),
-    content: () => printRef.current,
+    contentRef: printRef,
   });
   
   return (
@@ -198,7 +197,6 @@ const RunningPlanDisplay = ({ plan, onReset, onAskCoach }: RunningPlanDisplayPro
         </Button>
       </div>
 
-      {/* Hidden div for printing */}
       <div className="hidden">
         <div ref={printRef}>
           <PlanPrintView plan={plan} />
