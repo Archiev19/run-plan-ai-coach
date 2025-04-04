@@ -1,12 +1,123 @@
-
 import { GoalType } from '@/components/forms/GoalSelector';
 import { RunningPlan } from '@/components/plans/RunningPlanDisplay';
+
+// Calculate training paces based on user input
+const calculatePaces = (userData: any): { 
+  easy: string; 
+  moderate: string; 
+  threshold: string; 
+  interval: string; 
+  repetition: string; 
+} => {
+  // Base pace calculations on various inputs
+  let targetPace = '6:00';
+  let targetPaceSeconds = 360; // 6 minutes in seconds
+  
+  // For race training plans, use target time to calculate paces
+  if (userData.goalType === 'race-training' && userData.targetTime) {
+    // Parse target time (format: "h:mm:ss" or "mm:ss")
+    const timeParts = userData.targetTime.split(':').map(Number);
+    let totalSeconds = 0;
+    
+    if (timeParts.length === 3) {
+      // Format: "h:mm:ss"
+      totalSeconds = timeParts[0] * 3600 + timeParts[1] * 60 + timeParts[2];
+    } else if (timeParts.length === 2) {
+      // Format: "mm:ss"
+      totalSeconds = timeParts[0] * 60 + timeParts[1];
+    }
+    
+    // Calculate target pace in seconds per km
+    let distanceInKm = 5; // Default
+    switch (userData.raceDistance) {
+      case '5k':
+        distanceInKm = 5;
+        break;
+      case '10k':
+        distanceInKm = 10;
+        break;
+      case 'half-marathon':
+        distanceInKm = 21.1;
+        break;
+      case 'marathon':
+        distanceInKm = 42.2;
+        break;
+      case 'ultra':
+        distanceInKm = 50; // Simplified
+        break;
+    }
+    
+    targetPaceSeconds = Math.round(totalSeconds / distanceInKm);
+  } 
+  // For weight loss or general fitness, estimate based on fitness level
+  else {
+    if (userData.fitnessLevel === 'beginner') {
+      targetPaceSeconds = 390; // 6:30 min/km
+    } else if (userData.fitnessLevel === 'intermediate') {
+      targetPaceSeconds = 330; // 5:30 min/km
+    } else if (userData.fitnessLevel === 'advanced') {
+      targetPaceSeconds = 270; // 4:30 min/km
+    } else {
+      // Default for weight loss plans or undefined fitness level
+      targetPaceSeconds = 360; // 6:00 min/km
+    }
+  }
+  
+  // Format seconds to mm:ss
+  const formatPace = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')} min/km`;
+  };
+  
+  // Calculate different training paces based on target race pace
+  return {
+    easy: formatPace(Math.round(targetPaceSeconds * 1.3)),
+    moderate: formatPace(Math.round(targetPaceSeconds * 1.15)),
+    threshold: formatPace(Math.round(targetPaceSeconds * 1.05)),
+    interval: formatPace(Math.round(targetPaceSeconds * 0.95)),
+    repetition: formatPace(Math.round(targetPaceSeconds * 0.9))
+  };
+};
+
+// Add pace guidance to workout plans
+const addPaceGuidance = (days: any[], paces: any): any[] => {
+  return days.map(day => {
+    // Skip rest days
+    if (day.intensityLevel === 'rest') {
+      return day;
+    }
+    
+    let paceGuidance = '';
+    
+    // Assign pace guidance based on workout type and intensity
+    if (day.workoutType.includes('Interval') || day.workoutType.includes('Speed')) {
+      paceGuidance = `Work intervals: ${paces.interval}, Recovery: ${paces.easy}`;
+    } else if (day.workoutType.includes('Tempo')) {
+      paceGuidance = `Main effort: ${paces.threshold}, Warm-up/cooldown: ${paces.easy}`;
+    } else if (day.intensityLevel === 'easy' || day.workoutType.includes('Recovery')) {
+      paceGuidance = paces.easy;
+    } else if (day.intensityLevel === 'moderate' || day.workoutType.includes('Steady')) {
+      paceGuidance = paces.moderate;
+    } else if (day.intensityLevel === 'hard') {
+      paceGuidance = paces.threshold;
+    }
+    
+    return {
+      ...day,
+      paceGuidance
+    };
+  });
+};
 
 // Mock generator for weight loss running plan
 export const generateWeightLossPlan = (userData: any): RunningPlan => {
   // Calculate base data
   const weeklyVolume = userData.currentWeight > 80 ? 20 : 25; // Adjust based on weight
   const duration = userData.timeframe * 4; // 4 weeks per month
+  
+  // Calculate pace recommendations
+  const paces = calculatePaces(userData);
   
   // Generate weekly plans based on training days
   const weeklySummary = Array.from({ length: duration }, (_, i) => {
@@ -15,7 +126,10 @@ export const generateWeightLossPlan = (userData: any): RunningPlan => {
     const totalDistance = Math.round(weeklyVolume * progressFactor);
     
     // Create daily workouts based on selected training days
-    const days = generateDailyWorkouts(userData.trainingDays, totalDistance, 'weight-loss');
+    let days = generateDailyWorkouts(userData.trainingDays, totalDistance, 'weight-loss');
+    
+    // Add pace guidance to workouts
+    days = addPaceGuidance(days, paces);
     
     return {
       weekNumber,
@@ -34,6 +148,7 @@ export const generateWeightLossPlan = (userData: any): RunningPlan => {
     duration,
     totalDistance,
     weeklySummary,
+    paces,
     keyFeatures: [
       "Gradually increasing intensity to maximize calorie burn",
       "Mix of steady-state and interval training for metabolic boost",
@@ -56,6 +171,9 @@ export const generateFitnessPlan = (userData: any): RunningPlan => {
   let baseWeeklyVolume = userData.currentVolume || 15;
   const duration = 12; // 12-week general fitness plan
   
+  // Calculate pace recommendations
+  const paces = calculatePaces(userData);
+  
   // Generate weekly plans based on training days
   const weeklySummary = Array.from({ length: duration }, (_, i) => {
     const weekNumber = i + 1;
@@ -66,7 +184,10 @@ export const generateFitnessPlan = (userData: any): RunningPlan => {
     const totalDistance = Math.round(baseWeeklyVolume * progressFactor);
     
     // Create daily workouts based on selected training days
-    const days = generateDailyWorkouts(userData.trainingDays, totalDistance, 'general-fitness', userData.primaryFocus);
+    let days = generateDailyWorkouts(userData.trainingDays, totalDistance, 'general-fitness', userData.primaryFocus);
+    
+    // Add pace guidance to workouts
+    days = addPaceGuidance(days, paces);
     
     return {
       weekNumber,
@@ -85,6 +206,7 @@ export const generateFitnessPlan = (userData: any): RunningPlan => {
     duration,
     totalDistance,
     weeklySummary,
+    paces,
     keyFeatures: [
       "Gradually increasing volume with recovery weeks",
       "Balanced mix of easy, moderate and challenging sessions",
@@ -112,6 +234,9 @@ export const generateRaceTrainingPlan = (userData: any): RunningPlan => {
   if (userData.raceDistance === 'ultra') duration = 20;
   if (userData.raceDistance === '5k' && userData.currentVolume > 30) duration = 8;
   
+  // Calculate pace recommendations
+  const paces = calculatePaces(userData);
+  
   // Generate weekly plans
   const weeklySummary = Array.from({ length: duration }, (_, i) => {
     const weekNumber = i + 1;
@@ -133,7 +258,10 @@ export const generateRaceTrainingPlan = (userData: any): RunningPlan => {
     const totalDistance = Math.round(baseWeeklyVolume * progressFactor);
     
     // Create daily workouts based on selected training days
-    const days = generateDailyWorkouts(userData.trainingDays, totalDistance, 'race-training', userData.approachPreference, userData.raceDistance);
+    let days = generateDailyWorkouts(userData.trainingDays, totalDistance, 'race-training', userData.approachPreference, userData.raceDistance);
+    
+    // Add pace guidance to workouts
+    days = addPaceGuidance(days, paces);
     
     return {
       weekNumber,
@@ -152,6 +280,7 @@ export const generateRaceTrainingPlan = (userData: any): RunningPlan => {
     duration,
     totalDistance,
     weeklySummary,
+    paces,
     keyFeatures: [
       "Progressive overload with strategic recovery weeks",
       `Race-specific workouts tailored for ${formatRaceDistance(userData.raceDistance)} distance`,

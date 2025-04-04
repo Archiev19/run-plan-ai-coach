@@ -4,9 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Download, Printer } from 'lucide-react';
 import WeeklyPlanView from './WeeklyPlanView';
 import PlanSummary from './PlanSummary';
 import { GoalType } from '@/components/forms/GoalSelector';
+import { useReactToPrint } from 'react-to-print';
+import PlanPrintView from './PlanPrintView';
 
 export interface RunningPlan {
   title: string;
@@ -17,6 +20,13 @@ export interface RunningPlan {
   weeklySummary: WeeklyPlan[];
   keyFeatures: string[];
   notes: string[];
+  paces?: {
+    easy: string;
+    moderate: string;
+    threshold: string;
+    interval: string;
+    repetition: string;
+  };
 }
 
 export interface WeeklyPlan {
@@ -31,6 +41,7 @@ export interface DailyWorkout {
   distance: number;
   description: string;
   intensityLevel: 'easy' | 'moderate' | 'hard' | 'rest';
+  paceGuidance?: string;
 }
 
 interface RunningPlanDisplayProps {
@@ -41,19 +52,43 @@ interface RunningPlanDisplayProps {
 
 const RunningPlanDisplay = ({ plan, onReset, onAskCoach }: RunningPlanDisplayProps) => {
   const [activeWeek, setActiveWeek] = React.useState(1);
+  const printRef = React.useRef<HTMLDivElement>(null);
   
   const handleWeekChange = (weekNumber: number) => {
     setActiveWeek(weekNumber);
   };
+
+  const handlePrint = useReactToPrint({
+    content: () => printRef.current,
+    documentTitle: `${plan.title}_Training_Plan`,
+  });
   
   return (
     <div className="space-y-6">
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold">{plan.title}</h1>
+          <p className="text-muted-foreground">{plan.subtitle}</p>
+        </div>
+        
+        <Button 
+          onClick={handlePrint} 
+          variant="outline" 
+          className="flex items-center gap-2"
+        >
+          <Printer size={16} />
+          <span>Export PDF</span>
+        </Button>
+      </div>
+
       <Card>
         <CardHeader className="space-y-1">
           <div className="flex justify-between items-start">
             <div>
-              <CardTitle className="text-2xl">{plan.title}</CardTitle>
-              <CardDescription className="text-base">{plan.subtitle}</CardDescription>
+              <CardTitle className="text-2xl">Weekly Training Schedule</CardTitle>
+              <CardDescription className="text-base">
+                Follow this tailored plan to achieve your running goals
+              </CardDescription>
             </div>
             <Badge 
               variant="outline" 
@@ -68,6 +103,34 @@ const RunningPlanDisplay = ({ plan, onReset, onAskCoach }: RunningPlanDisplayPro
               {plan.type === 'race-training' ? 'Race Training' : ''}
             </Badge>
           </div>
+          
+          {plan.paces && (
+            <div className="mt-2 p-3 bg-muted rounded-md">
+              <h3 className="text-sm font-medium mb-2">Your Recommended Training Paces:</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-xs">
+                <div className="bg-run-success/10 p-2 rounded">
+                  <span className="font-medium block">Easy:</span> 
+                  <span>{plan.paces.easy}</span>
+                </div>
+                <div className="bg-run-warning/10 p-2 rounded">
+                  <span className="font-medium block">Moderate:</span> 
+                  <span>{plan.paces.moderate}</span>
+                </div>
+                <div className="bg-run-warning/20 p-2 rounded">
+                  <span className="font-medium block">Threshold:</span> 
+                  <span>{plan.paces.threshold}</span>
+                </div>
+                <div className="bg-run-danger/10 p-2 rounded">
+                  <span className="font-medium block">Interval:</span> 
+                  <span>{plan.paces.interval}</span>
+                </div>
+                <div className="bg-run-danger/20 p-2 rounded">
+                  <span className="font-medium block">Repetition:</span> 
+                  <span>{plan.paces.repetition}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="plan" className="space-y-4">
@@ -127,6 +190,13 @@ const RunningPlanDisplay = ({ plan, onReset, onAskCoach }: RunningPlanDisplayPro
         >
           Ask AI Coach
         </Button>
+      </div>
+
+      {/* Hidden div for printing */}
+      <div className="hidden">
+        <div ref={printRef}>
+          <PlanPrintView plan={plan} />
+        </div>
       </div>
     </div>
   );

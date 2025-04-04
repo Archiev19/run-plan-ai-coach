@@ -42,7 +42,7 @@ const WeeklyPlanView = ({ weekPlan }: WeeklyPlanViewProps) => {
                 </span>
               </div>
               
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">{workout.workoutType}</span>
                   {workout.distance > 0 && (
@@ -50,6 +50,12 @@ const WeeklyPlanView = ({ weekPlan }: WeeklyPlanViewProps) => {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">{workout.description}</p>
+                {workout.paceGuidance && (
+                  <p className="text-xs font-medium border-t pt-1 mt-1">
+                    <span className="text-muted-foreground">Pace: </span> 
+                    {workout.paceGuidance}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
