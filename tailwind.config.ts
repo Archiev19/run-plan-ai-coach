@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,17 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Running app custom colors
+				run: {
+					primary: '#0EA5E9', // Bright blue for primary actions
+					secondary: '#0284C7', // Darker blue for secondary elements
+					accent: '#F97316', // Orange for highlights and accents
+					success: '#22C55E', // Green for success/completion indicators
+					warning: '#F59E0B', // Yellow for moderate intensity
+					danger: '#EF4444', // Red for high intensity
+					light: '#F0F9FF', // Very light blue for backgrounds
+					dark: '#0F172A', // Dark blue/slate for text
 				}
 			},
 			borderRadius: {
@@ -84,11 +96,20 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pulse-light': {
+					'0%, 100%': {
+						opacity: '1',
+					},
+					'50%': {
+						opacity: '0.8',
+					},
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-light': 'pulse-light 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
 			}
 		}
 	},
