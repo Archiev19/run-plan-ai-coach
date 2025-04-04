@@ -1,9 +1,10 @@
+
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, Printer } from 'lucide-react';
+import { Download, Printer, ArrowLeft } from 'lucide-react';
 import WeeklyPlanView from './WeeklyPlanView';
 import PlanSummary from './PlanSummary';
 import { GoalType } from '@/components/forms/GoalSelector';
@@ -71,9 +72,20 @@ const RunningPlanDisplay = ({ plan, onReset, onAskCoach }: RunningPlanDisplayPro
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl font-bold">{plan.title}</h1>
-          <p className="text-muted-foreground">{plan.subtitle}</p>
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={onReset} 
+            variant="ghost" 
+            size="sm" 
+            className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft size={16} />
+            <span>Back</span>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">{plan.title}</h1>
+            <p className="text-muted-foreground">{plan.subtitle}</p>
+          </div>
         </div>
         
         <Button 

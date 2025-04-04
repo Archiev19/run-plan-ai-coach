@@ -8,6 +8,7 @@ import GeneralFitnessForm from '@/components/forms/GeneralFitnessForm';
 import RaceTrainingForm from '@/components/forms/RaceTrainingForm';
 import RunningPlanDisplay, { RunningPlan } from '@/components/plans/RunningPlanDisplay';
 import AICoach from '@/components/coach/AICoach';
+import RunningFAQ from '@/components/faq/RunningFAQ';
 import { generateRunningPlan } from '@/services/planGenerator';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -92,8 +93,7 @@ const Index = () => {
         !weightLossData.height ||
         !weightLossData.timeframe ||
         !weightLossData.activityLevel ||
-        weightLossData.trainingDays.length === 0 ||
-        !weightLossData.injuryHistory
+        weightLossData.trainingDays.length === 0
       ) {
         toast({
           title: "Missing information",
@@ -130,8 +130,7 @@ const Index = () => {
         !fitnessData.currentVolume ||
         !fitnessData.fitnessLevel ||
         !fitnessData.primaryFocus ||
-        fitnessData.trainingDays.length === 0 ||
-        !fitnessData.injuryHistory
+        fitnessData.trainingDays.length === 0
       ) {
         toast({
           title: "Missing information",
@@ -172,8 +171,7 @@ const Index = () => {
         !raceTrainingData.longestRun ||
         !raceTrainingData.approachPreference ||
         !raceTrainingData.raceTerrain ||
-        raceTrainingData.trainingDays.length === 0 ||
-        !raceTrainingData.injuryHistory
+        raceTrainingData.trainingDays.length === 0
       ) {
         toast({
           title: "Missing information",
@@ -285,6 +283,8 @@ const Index = () => {
             )}
           </div>
         </section>
+        
+        {!generatedPlan && <RunningFAQ />}
       </main>
       
       <Footer />
