@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -11,8 +10,9 @@ import AICoach from '@/components/coach/AICoach';
 import RunningFAQ from '@/components/faq/RunningFAQ';
 import { generateRunningPlan } from '@/services/planGenerator';
 import { useToast } from '@/components/ui/use-toast';
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from 'lucide-react';
 
-// Initial form data states
 const initialWeightLossData = {
   currentWeight: 0,
   targetWeight: 0,
@@ -54,7 +54,6 @@ const Index = () => {
   const [showCoach, setShowCoach] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<RunningPlan | null>(null);
   
-  // Form data states
   const [weightLossData, setWeightLossData] = useState(initialWeightLossData);
   const [fitnessData, setFitnessData] = useState(initialFitnessData);
   const [raceTrainingData, setRaceTrainingData] = useState(initialRaceTrainingData);
@@ -86,7 +85,6 @@ const Index = () => {
   
   const handleWeightLossSubmit = () => {
     try {
-      // Validate required fields
       if (
         !weightLossData.currentWeight ||
         !weightLossData.targetWeight ||
@@ -111,7 +109,6 @@ const Index = () => {
       const plan = generateRunningPlan(userData);
       setGeneratedPlan(plan);
       
-      // Scroll to top to show the plan
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       toast({
@@ -125,7 +122,6 @@ const Index = () => {
   
   const handleFitnessSubmit = () => {
     try {
-      // Validate required fields
       if (
         !fitnessData.currentVolume ||
         !fitnessData.fitnessLevel ||
@@ -148,7 +144,6 @@ const Index = () => {
       const plan = generateRunningPlan(userData);
       setGeneratedPlan(plan);
       
-      // Scroll to top to show the plan
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       toast({
@@ -162,7 +157,6 @@ const Index = () => {
   
   const handleRaceTrainingSubmit = () => {
     try {
-      // Validate required fields
       if (
         !raceTrainingData.raceDistance ||
         !raceTrainingData.raceDate ||
@@ -189,7 +183,6 @@ const Index = () => {
       const plan = generateRunningPlan(userData);
       setGeneratedPlan(plan);
       
-      // Scroll to top to show the plan
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       toast({
@@ -206,19 +199,16 @@ const Index = () => {
     setGeneratedPlan(null);
     setShowCoach(false);
     
-    // Reset form data
     setWeightLossData(initialWeightLossData);
     setFitnessData(initialFitnessData);
     setRaceTrainingData(initialRaceTrainingData);
     
-    // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
   const handleAskCoach = () => {
     setShowCoach(true);
     
-    // Scroll to coach section
     setTimeout(() => {
       document.getElementById('coach-section')?.scrollIntoView({ behavior: 'smooth' });
     }, 100);

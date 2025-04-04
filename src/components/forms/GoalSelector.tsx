@@ -1,16 +1,18 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check } from 'lucide-react';
+import { Check, ArrowLeft } from 'lucide-react';
+import { Button } from "@/components/ui/button";
 
 export type GoalType = 'weight-loss' | 'general-fitness' | 'race-training';
 
 interface GoalSelectorProps {
   selectedGoal: GoalType | null;
   onSelectGoal: (goal: GoalType) => void;
+  onReset?: () => void;
 }
 
-const GoalSelector = ({ selectedGoal, onSelectGoal }: GoalSelectorProps) => {
+const GoalSelector = ({ selectedGoal, onSelectGoal, onReset }: GoalSelectorProps) => {
   const goals = [
     {
       id: 'weight-loss',
@@ -34,6 +36,17 @@ const GoalSelector = ({ selectedGoal, onSelectGoal }: GoalSelectorProps) => {
 
   return (
     <div className="space-y-4">
+      {onReset && (
+        <Button
+          onClick={onReset}
+          variant="ghost"
+          size="sm"
+          className="mb-2 flex items-center gap-1 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft size={16} />
+          <span>Back to home</span>
+        </Button>
+      )}
       <h2 className="text-xl font-semibold text-center">What's your running goal?</h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {goals.map((goal) => (

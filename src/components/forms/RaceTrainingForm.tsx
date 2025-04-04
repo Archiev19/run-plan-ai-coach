@@ -10,8 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, AlertCircle } from "lucide-react";
+import { Calendar as CalendarIcon, AlertCircle, InfoIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface RaceTrainingFormData {
   raceDistance: string;
@@ -19,6 +20,9 @@ interface RaceTrainingFormData {
   targetTime: string;
   currentVolume: number;
   longestRun: number;
+  currentPace: string; // New field
+  recentRaceTime: string; // New field
+  recentRaceDistance: string; // New field
   approachPreference: string;
   raceTerrain: string;
   strengthTraining: boolean;
@@ -44,12 +48,14 @@ const daysOfWeek = [
 
 // Time format validation helper
 const isValidTimeFormat = (time: string): boolean => {
+  if (!time) return true; // Allow empty for optional fields
   const regex = /^(\d+:)?[0-5]?\d:[0-5]\d$/;
   return regex.test(time);
 };
 
 // Parse time to seconds
 const timeToSeconds = (time: string): number => {
+  if (!time) return 0;
   const parts = time.split(':').map(Number);
   if (parts.length === 3) {
     return parts[0] * 3600 + parts[1] * 60 + parts[2];
@@ -91,12 +97,35 @@ const racePaceBenchmarks: Record<string, Record<string, { beginner: number; inte
   },
 };
 
+// Training paces relative to race pace
+const trainingPaceRatios = {
+  easy: 1.3, // 30% slower than race pace
+  moderate: 1.15, // 15% slower than race pace
+  threshold: 1.05, // 5% slower than race pace
+  interval: 0.95, // 5% faster than race pace
+  repetition: 0.90, // 10% faster than race pace
+};
+
+// Convert race distance to kilometers
+const getDistanceInKm = (raceDistance: string): number => {
+  switch (raceDistance) {
+    case '5k': return 5;
+    case '10k': return 10;
+    case 'half-marathon': return 21.1;
+    case 'marathon': return 42.2;
+    case 'ultra': return 50;
+    default: return 0;
+  }
+};
+
 const RaceTrainingForm = ({ formData, onChange, onSubmit }: RaceTrainingFormProps) => {
   const [open, setOpen] = useState(false);
   const [paceAnalysis, setPaceAnalysis] = useState<{
     isFeasible: boolean;
+    confidence: 'low' | 'medium' | 'high';
     message: string;
     suggestion?: string;
+    trainingPaces?: Record<string, string>;
   } | null>(null);
 
   const handleDayToggle = (day: string) => {
@@ -112,7 +141,7 @@ const RaceTrainingForm = ({ formData, onChange, onSubmit }: RaceTrainingFormProp
     setPaceAnalysis(null);
     
     // Check if we have all the required data to analyze
-    if (!formData.raceDistance || !formData.targetTime || !formData.currentVolume || !formData.longestRun) {
+    if (!formData.raceDistance || !formData.targetTime) {
       return;
     }
     
@@ -123,73 +152,161 @@ const RaceTrainingForm = ({ formData, onChange, onSubmit }: RaceTrainingFormProp
     
     // Calculate target pace in seconds per km
     const totalSeconds = timeToSeconds(formData.targetTime);
-    let distanceInKm = 5; // Default
-    
-    switch (formData.raceDistance) {
-      case '5k': distanceInKm = 5; break;
-      case '10k': distanceInKm = 10; break;
-      case 'half-marathon': distanceInKm = 21.1; break;
-      case 'marathon': distanceInKm = 42.2; break;
-      case 'ultra': distanceInKm = 50; break;
-    }
+    const distanceInKm = getDistanceInKm(formData.raceDistance);
+    if (distanceInKm === 0) return;
     
     const targetPaceSeconds = Math.round(totalSeconds / distanceInKm);
     const targetPaceFormatted = secondsToTime(targetPaceSeconds);
     
     // Get benchmarks for this distance
     const benchmarks = racePaceBenchmarks[formData.raceDistance]?.target;
-    
     if (!benchmarks) return;
     
-    // Evaluate based on current volume, longest run, and target pace
-    const isBeginner = formData.currentVolume < 20 || formData.longestRun < 5;
-    const isIntermediate = (formData.currentVolume >= 20 && formData.currentVolume < 50) || 
-                         (formData.longestRun >= 5 && formData.longestRun < 15);
-    const isAdvanced = formData.currentVolume >= 50 || formData.longestRun >= 15;
+    let fitnessLevel: 'beginner' | 'intermediate' | 'advanced' = 'intermediate';
+    let confidenceScore = 'medium' as 'low' | 'medium' | 'high';
     
-    let feasibilityLevel = 0;
-    let category = 'intermediate';
+    // Gather evidence for fitness assessment
+    const evidence = [];
     
-    if (isBeginner) {
-      category = 'beginner';
-      feasibilityLevel = targetPaceSeconds <= benchmarks.beginner ? 0 : 1;
-    } else if (isIntermediate) {
-      category = 'intermediate';
-      feasibilityLevel = targetPaceSeconds <= benchmarks.intermediate ? 1 : 
-                         targetPaceSeconds <= benchmarks.beginner ? 2 : 0;
-    } else if (isAdvanced) {
-      category = 'advanced';
-      feasibilityLevel = targetPaceSeconds <= benchmarks.advanced ? 2 : 
-                         targetPaceSeconds <= benchmarks.intermediate ? 2 : 1;
+    // Evidence from volume and long run
+    if (formData.currentVolume > 0 && formData.longestRun > 0) {
+      if (formData.currentVolume < 20 || formData.longestRun < 5) {
+        fitnessLevel = 'beginner';
+        evidence.push('low weekly volume or short longest run');
+      } else if (formData.currentVolume >= 50 || formData.longestRun >= 15) {
+        fitnessLevel = 'advanced';
+        evidence.push('high weekly volume or long longest run');
+      } else {
+        fitnessLevel = 'intermediate';
+        evidence.push('moderate weekly volume and longest run');
+      }
+      confidenceScore = 'medium';
     }
     
-    // Determine if goal is feasible
-    const isFeasible = feasibilityLevel > 0;
+    // Evidence from current pace if provided
+    if (formData.currentPace && isValidTimeFormat(formData.currentPace)) {
+      const currentPaceSeconds = timeToSeconds(formData.currentPace);
+      if (currentPaceSeconds > 0) {
+        if (currentPaceSeconds > benchmarks.beginner + 30) {
+          // Much slower than beginner benchmark
+          if (fitnessLevel !== 'beginner') {
+            fitnessLevel = 'beginner';
+            evidence.push('current pace is slower than typical beginner paces');
+          }
+        } else if (currentPaceSeconds < benchmarks.advanced + 15) {
+          // Closer to advanced benchmark
+          if (fitnessLevel !== 'advanced') {
+            fitnessLevel = 'advanced';
+            evidence.push('current pace is close to advanced runner paces');
+          }
+        }
+        confidenceScore = 'high';
+      }
+    }
+    
+    // Evidence from recent race if provided
+    if (formData.recentRaceTime && formData.recentRaceDistance && 
+        isValidTimeFormat(formData.recentRaceTime)) {
+      const recentRaceSeconds = timeToSeconds(formData.recentRaceTime);
+      const recentDistanceKm = getDistanceInKm(formData.recentRaceDistance);
+      
+      if (recentRaceSeconds > 0 && recentDistanceKm > 0) {
+        const recentPaceSeconds = recentRaceSeconds / recentDistanceKm;
+        
+        // Use recent race to predict target race using Riegel formula
+        // T2 = T1 × (D2/D1)^1.06
+        const predictedSeconds = recentRaceSeconds * 
+                                Math.pow(distanceInKm / recentDistanceKm, 1.06);
+        const predictedPace = predictedSeconds / distanceInKm;
+        
+        // Compare predicted pace with target pace
+        const paceRatio = targetPaceSeconds / predictedPace;
+        let predictionMessage = '';
+        
+        if (paceRatio < 0.9) {
+          // Target is >10% faster than prediction (ambitious)
+          predictionMessage = `Based on your recent ${formData.recentRaceDistance} time, your target is very ambitious (${Math.round((1-paceRatio)*100)}% faster than predicted).`;
+          confidenceScore = 'high';
+        } else if (paceRatio < 0.97) {
+          // Target is 3-10% faster than prediction (challenging)
+          predictionMessage = `Based on your recent ${formData.recentRaceDistance} time, your target is challenging but potentially achievable.`;
+          confidenceScore = 'high';
+        } else {
+          // Target is in line with or slower than prediction
+          predictionMessage = `Based on your recent ${formData.recentRaceDistance} time, your target pace appears achievable.`;
+          confidenceScore = 'high';
+        }
+        
+        evidence.push(predictionMessage);
+      }
+    }
+    
+    // Determine if goal is feasible based on target vs benchmark
+    let isFeasible = true;
+    let feasibilityMessage = '';
+    
+    if (targetPaceSeconds < benchmarks[fitnessLevel]) {
+      // Target is faster than typical for assessed fitness level
+      const percentFaster = Math.round((1 - targetPaceSeconds / benchmarks[fitnessLevel]) * 100);
+      if (percentFaster > 15) {
+        isFeasible = false;
+        feasibilityMessage = `Your target pace is ${percentFaster}% faster than typical for your fitness level.`;
+      } else {
+        feasibilityMessage = `Your target pace is challenging but potentially achievable for your fitness level.`;
+      }
+    } else {
+      feasibilityMessage = `Your target pace is realistic based on your fitness level.`;
+    }
+    
+    // Calculate training paces based on target race pace
+    const trainingPaces: Record<string, string> = {};
+    trainingPaces.easy = secondsToTime(Math.round(targetPaceSeconds * trainingPaceRatios.easy));
+    trainingPaces.moderate = secondsToTime(Math.round(targetPaceSeconds * trainingPaceRatios.moderate));
+    trainingPaces.threshold = secondsToTime(Math.round(targetPaceSeconds * trainingPaceRatios.threshold));
+    trainingPaces.interval = secondsToTime(Math.round(targetPaceSeconds * trainingPaceRatios.interval));
+    trainingPaces.repetition = secondsToTime(Math.round(targetPaceSeconds * trainingPaceRatios.repetition));
     
     // Suggestion for more realistic goal if needed
     let suggestion = '';
     
     if (!isFeasible) {
-      // Calculate a more realistic time (add 10-15% buffer to benchmark)
-      const adjustmentFactor = 1.12; // 12% buffer
-      const suggestedPaceSeconds = Math.round(benchmarks[category as keyof typeof benchmarks] * adjustmentFactor);
+      // Calculate a more realistic time (add buffer to benchmark)
+      const adjustmentFactor = 1.05; // 5% buffer
+      const suggestedPaceSeconds = Math.round(benchmarks[fitnessLevel] * adjustmentFactor);
       const suggestedTotalTime = secondsToTime(suggestedPaceSeconds * distanceInKm);
       
-      suggestion = `Consider a more achievable target time of ${suggestedTotalTime} (${secondsToTime(suggestedPaceSeconds)}/km) for your first ${formData.raceDistance}.`;
+      suggestion = `Consider a more achievable target time of ${suggestedTotalTime} (${secondsToTime(suggestedPaceSeconds)}/km) for your ${formData.raceDistance}.`;
+    }
+    
+    // Put together the full analysis message
+    let fullMessage = `Your target pace is ${targetPaceFormatted}/km which appears to be ${isFeasible ? 'realistic' : 'challenging'} for your current fitness level. `;
+    
+    if (evidence.length > 0) {
+      fullMessage += evidence.join(' ');
     }
     
     // Set pace analysis
     setPaceAnalysis({
       isFeasible,
-      message: `Your target pace is ${targetPaceFormatted}/km which appears to be ${isFeasible ? 'realistic' : 'challenging'} for your current fitness level.`,
-      suggestion: !isFeasible ? suggestion : undefined
+      confidence: confidenceScore,
+      message: fullMessage,
+      suggestion: !isFeasible ? suggestion : undefined,
+      trainingPaces
     });
   };
 
   // Analyze pace whenever relevant inputs change
   React.useEffect(() => {
     analyzePace();
-  }, [formData.raceDistance, formData.targetTime, formData.currentVolume, formData.longestRun]);
+  }, [
+    formData.raceDistance, 
+    formData.targetTime, 
+    formData.currentVolume, 
+    formData.longestRun,
+    formData.currentPace,
+    formData.recentRaceTime,
+    formData.recentRaceDistance
+  ]);
 
   return (
     <Card className="w-full">
@@ -281,16 +398,112 @@ const RaceTrainingForm = ({ formData, onChange, onSubmit }: RaceTrainingFormProp
                   required
                 />
               </div>
+              
+              {/* New current pace field */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="currentPace">Current Easy Pace (min/km)</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">Your comfortable, conversational running pace</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Input
+                  id="currentPace"
+                  type="text"
+                  placeholder="e.g. 6:30"
+                  value={formData.currentPace || ''}
+                  onChange={(e) => onChange({ currentPace: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">Format: mm:ss</p>
+              </div>
             </div>
             
             <div className="space-y-4">
+              {/* Recent race performance */}
+              <div className="space-y-2 border p-3 rounded-md border-muted bg-muted/10">
+                <Label className="text-sm font-medium">Recent Race Performance (Optional)</Label>
+                <p className="text-xs text-muted-foreground mb-2">This helps us analyze your goal more accurately</p>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="recentRaceDistance" className="text-xs">Race Distance</Label>
+                    <Select 
+                      value={formData.recentRaceDistance || ''} 
+                      onValueChange={(value) => onChange({ recentRaceDistance: value })}
+                    >
+                      <SelectTrigger id="recentRaceDistance" className="h-8 text-xs">
+                        <SelectValue placeholder="Select distance" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5k">5K</SelectItem>
+                        <SelectItem value="10k">10K</SelectItem>
+                        <SelectItem value="half-marathon">Half Marathon</SelectItem>
+                        <SelectItem value="marathon">Marathon</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <Label htmlFor="recentRaceTime" className="text-xs">Finish Time</Label>
+                    <Input
+                      id="recentRaceTime"
+                      type="text"
+                      placeholder="e.g. 25:30"
+                      value={formData.recentRaceTime || ''}
+                      onChange={(e) => onChange({ recentRaceTime: e.target.value })}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+              
               {paceAnalysis && (
                 <Alert variant={paceAnalysis.isFeasible ? "default" : "destructive"} className="border-2">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Pace Analysis</AlertTitle>
+                  <AlertTitle className="flex items-center gap-2">
+                    Pace Analysis 
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      paceAnalysis.confidence === 'high' ? 'bg-run-success/20 text-run-success' : 
+                      paceAnalysis.confidence === 'medium' ? 'bg-run-warning/20 text-run-warning' : 
+                      'bg-muted/20 text-muted-foreground'
+                    }`}>
+                      {paceAnalysis.confidence.charAt(0).toUpperCase() + paceAnalysis.confidence.slice(1)} Confidence
+                    </span>
+                  </AlertTitle>
                   <AlertDescription className="space-y-2">
                     <p>{paceAnalysis.message}</p>
                     {paceAnalysis.suggestion && <p className="font-medium">{paceAnalysis.suggestion}</p>}
+                    
+                    {paceAnalysis.trainingPaces && (
+                      <div className="mt-2">
+                        <p className="text-sm font-medium mb-1">Your Training Paces:</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="bg-run-success/10 p-1.5 rounded">
+                            <span className="font-medium block">Easy:</span> 
+                            <span>{paceAnalysis.trainingPaces.easy}/km</span>
+                          </div>
+                          <div className="bg-run-warning/10 p-1.5 rounded">
+                            <span className="font-medium block">Moderate:</span> 
+                            <span>{paceAnalysis.trainingPaces.moderate}/km</span>
+                          </div>
+                          <div className="bg-run-warning/20 p-1.5 rounded">
+                            <span className="font-medium block">Threshold:</span> 
+                            <span>{paceAnalysis.trainingPaces.threshold}/km</span>
+                          </div>
+                          <div className="bg-run-danger/10 p-1.5 rounded">
+                            <span className="font-medium block">Interval:</span> 
+                            <span>{paceAnalysis.trainingPaces.interval}/km</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </AlertDescription>
                 </Alert>
               )}
@@ -371,7 +584,7 @@ const RaceTrainingForm = ({ formData, onChange, onSubmit }: RaceTrainingFormProp
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="injuryHistory">Injury History</Label>
+            <Label htmlFor="injuryHistory">Injury History (Optional)</Label>
             <Textarea
               id="injuryHistory"
               placeholder="Please list any running-related injuries you've had in the past (e.g., knee pain, shin splints, etc.)"
