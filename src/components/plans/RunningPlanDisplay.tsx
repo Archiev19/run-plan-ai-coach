@@ -10,6 +10,7 @@ import PlanSummary from './PlanSummary';
 import { GoalType } from '@/components/forms/GoalSelector';
 import { useReactToPrint } from 'react-to-print';
 import PlanPrintView from './PlanPrintView';
+import { toast } from "@/components/ui/use-toast";
 
 export interface RunningPlan {
   title: string;
@@ -59,8 +60,13 @@ const RunningPlanDisplay = ({ plan, onReset, onAskCoach }: RunningPlanDisplayPro
   };
 
   const handlePrint = useReactToPrint({
-    content: () => printRef.current,
     documentTitle: `${plan.title}_Training_Plan`,
+    onPrintError: (error) => toast({
+      title: "Print Error",
+      description: "An error occurred while generating PDF",
+      variant: "destructive",
+    }),
+    content: () => printRef.current,
   });
   
   return (
@@ -72,7 +78,7 @@ const RunningPlanDisplay = ({ plan, onReset, onAskCoach }: RunningPlanDisplayPro
         </div>
         
         <Button 
-          onClick={handlePrint} 
+          onClick={() => handlePrint()}
           variant="outline" 
           className="flex items-center gap-2"
         >
